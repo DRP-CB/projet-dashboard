@@ -2,16 +2,10 @@ import streamlit as st
 import pandas as pd
 import joblib
 from request_api import send_request
-from descriptor import (
-    get_features,
-    get_description,
-    plot_feature,
-    interpret_client,
-    analysis,
-)
+from descriptor import get_features, get_description, plot_feature, interpret_client
 import shap
 from matplotlib import pyplot as plt
-
+import plotly.express as px
 
 # st.set_option('deprecation.showPyplotGlobalUse', False)
 
@@ -119,4 +113,20 @@ elif usecase == panneau2:
             options=data.columns,
         )
         submit_button = st.form_submit_button(label="Visualiser")
-        st.pyplot(analysis(features, data))
+    if len(features) < 2:
+        fig = px.histogram(data, x=features, template="seaborn")
+        st.plotly_chart(fig)
+    elif len(features) == 2:
+        fig = px.scatter(
+            x=features[0],
+            y=features[1],
+            data_frame=data,
+            hover_name=data.index,
+            opacity=0.8,
+            template="seaborn",
+            title=f"Relation entre {features[0]} et {features[1]} ",
+        )
+        st.plotly_chart(fig)
+    elif len(features) > 2:
+        fig = px.scatter_matrix(data, dimensions=features)
+        st.plotly_chart(fig)
