@@ -72,4 +72,22 @@ def interpret_client(sk_id_curr,
         phrase = 'très largement au dessus de'
     return f'Le client est {phrase} la moyenne des clients en défaut.'    
         
-        
+
+def analysis(features,data):
+    if type(features) == str:
+          fig, ax = plt.subplots(figsize=(10,10))
+          ax.hist(data[features])
+          return(fig)
+    elif len(features) == 2:
+        fig = sns.jointplot(x=features[0],
+                      y=features[1],
+                      data=data,
+                      kind='reg',
+                      joint_kws={'line_kws':{'color':'red'}})
+        return(fig)
+    elif len(features) > 2:
+        fig = plt.figure(figsize=(12,10))
+        sns.heatmap(data.loc[:,features].corr(),
+                    cmap=sns.diverging_palette(240,0, -100),
+                    annot=True)
+        return(fig);

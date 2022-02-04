@@ -2,7 +2,13 @@ import streamlit as st
 import pandas as pd
 import joblib
 from request_api import send_request
-from descriptor import get_features, get_description, plot_feature, interpret_client
+from descriptor import (
+    get_features,
+    get_description,
+    plot_feature,
+    interpret_client,
+    analysis,
+)
 import shap
 from matplotlib import pyplot as plt
 
@@ -11,7 +17,7 @@ from matplotlib import pyplot as plt
 
 # variables
 
-dataset = "sampledData.csv"
+dataset = "sampleData.csv"
 url = "http://localhost:5000/pred"
 seuilattribution = 0.71
 
@@ -31,7 +37,7 @@ def load_data():
     paybackClientsData = unscaledData[unscaledData["TARGET"] == 0]
     descriptions = pd.read_csv("descriptions.csv")
 
-    data = data.sample(2000)
+    # data = data.sample(2000)
 
     return data, unscaledData, defaultClientsData, paybackClientsData, descriptions
 
@@ -102,4 +108,15 @@ if usecase == panneau1:
             st.text(f"{position}")
 
 elif usecase == panneau2:
-    st.write("# Analyse de données")
+    st.write("# Analyse de données\n ")
+
+    with st.form(key="dataAnalysis"):
+        values = st.slider("Select a range of values", 0.0, 100.0, (25.0, 75.0))
+        st.write("Values:", values)
+        # st.write('###### Analyser et comparer la/les variables selectionnées')
+        features = st.multiselect(
+            label="Analyser et comparer la/les variables selectionnées",
+            options=data.columns,
+        )
+        submit_button = st.form_submit_button(label="Visualiser")
+        st.pyplot(analysis(features, data))
