@@ -2,25 +2,28 @@ import streamlit as st
 import pandas as pd
 import joblib
 from request_api import send_request
-from descriptor import get_features, get_description, plot_feature, interpret_client
 import shap
 from matplotlib import pyplot as plt
 import plotly.express as px
+import seaborn as sns
+import os
 
-# st.set_option('deprecation.showPyplotGlobalUse', False)
 
 # variables
 
-dataset = "sampleData.csv"
+datasetPath = os.path.join(os.getcwd(), "..", "modélisation/sampleData.csv")
+explainerPath = os.path.join(os.getcwd(), "..", "modélisation/explainer.pkl")
+descriptionsPath = os.path.join(os.getcwd(), "..", "modélisation/descriptions.csv")
+scalerPath = os.path.join(os.getcwd(), "..", "modélisation/scaler.pkl")
 url = "http://localhost:5000/pred"
 seuilattribution = 0.71
 
 
 @st.cache(persist=True)
 def load_data():
-    dataWithTarget = pd.read_csv(dataset, index_col="SK_ID_CURR")
+    dataWithTarget = pd.read_csv(datasetPath, index_col="SK_ID_CURR")
 
-    scaler = joblib.load("scaler.pkl")
+    scaler = joblib.load(scalerPath)
     unscaledData = pd.DataFrame(scaler.inverse_transform(dataWithTarget))
     unscaledData.index = dataWithTarget.index
     unscaledData.columns = dataWithTarget.columns
@@ -29,7 +32,7 @@ def load_data():
 
     defaultClientsData = unscaledData[unscaledData["TARGET"] == 1]
     paybackClientsData = unscaledData[unscaledData["TARGET"] == 0]
-    descriptions = pd.read_csv("descriptions.csv")
+    descriptions = pd.read_csv(descriptionsPath)
 
     # data = data.sample(2000)
 
@@ -39,7 +42,7 @@ def load_data():
 @st.cache(persist=True)
 def load_explainer():
     shap.initjs()
-    explainer = joblib.load("explainer.pkl")
+    explainer = joblib.load(explainerPath)
     return explainer
 
 
@@ -47,6 +50,82 @@ def load_explainer():
 def get_prediction(ID, url, data):
     pred = send_request(ID, url, data)
     return pred
+
+
+def plot_feature(
+    sk_id_curr, feature, defaultClientsData, paybackClientsData, unscaledData
+):
+    fig, ax = plt.subplots(figsize=(10, 5))
+    sns.kdeplot(
+        x=feature,
+        data=paybackClientsData,
+        fill=True,
+        label="Clients ayant remboursé",
+        ax=ax,
+    )
+    sns.kdeplot(
+        x=feature,
+        data=defaultClientsData,
+        fill=True,
+        color="red",
+        alpha=0.2,
+        label="Clients en défaut",
+        ax=ax,
+    )
+    plt.axvline(
+        x=defaultClientsData[feature].mean(),
+        color="red",
+        label="Position moyenne des crédits en défaut",
+    )
+    plt.axvline(
+        x=unscaledData.loc[sk_id_curr, [feature]][0],
+        color="cyan",
+        label=f"Position du client (crédit n° {sk_id_curr})",
+    )
+    plt.legend()
+    plt.suptitle("Comparaison entre client individuel et totalité des clients.")
+    return fig
+
+
+def get_features(sk_id_curr, dataset, explainer):
+    shapDF = pd.DataFrame(
+        {
+            "feature": dataset.columns,
+            "shap": explainer.shap_values(dataset.loc[sk_id_curr, :]),
+        }
+    )
+    orderedShapDF = shapDF.iloc[shapDF.shap.abs().sort_values(ascending=False).index, :]
+    return orderedShapDF.head(5)["feature"].values
+
+
+def get_description(featureName, descriptions):
+    info = descriptions[descriptions["Row"] == featureName]["Description"]
+    try:
+        return info.values[0]
+    except:
+        return "pas de description disponible"
+
+
+def interpret_client(sk_id_curr, feature, defaultClientsData, unscaledData):
+    meanDefault = defaultClientsData[feature].mean()
+    stdDefault = defaultClientsData[feature].std()
+    clientValue = unscaledData.loc[sk_id_curr, feature]
+    position = (clientValue - meanDefault) / stdDefault
+    if position < -2:
+        phrase = "très largement en dessous de"
+    elif position >= -2 and position < -1:
+        phrase = "largement en dessous de"
+    elif position >= -1 and position < -0.5:
+        phrase = "en dessous de"
+    elif position >= -0.5 and position < 0.5:
+        phrase = "dans"
+    elif position >= 0.5 and position < 1:
+        phrase = "au dessus de"
+    elif position >= 1 and position < 2:
+        phrase = "largement au dessus de"
+    elif position > 2:
+        phrase = "très largement au dessus de"
+    return f"Le client est {phrase} la moyenne des clients en défaut."
 
 
 data, unscaledData, defaultClientsData, paybackClientsData, descriptions = load_data()
@@ -93,13 +172,16 @@ if usecase == panneau1:
         st.write("### Détail des facteurs :")
         facteurs = get_features(ID, data, explainer)
         for facteur in facteurs:
-            st.write(f"##### {facteur}\n {get_description(facteur,descriptions)}")
-            fig = plot_feature(
-                ID, facteur, defaultClientsData, paybackClientsData, unscaledData
-            )
-            st.pyplot(fig)
-            position = interpret_client(ID, facteur, defaultClientsData, unscaledData)
-            st.text(f"{position}")
+            with st.expander(facteur):
+                st.write(f"{get_description(facteur,descriptions)}")
+                fig = plot_feature(
+                    ID, facteur, defaultClientsData, paybackClientsData, unscaledData
+                )
+                st.pyplot(fig)
+                position = interpret_client(
+                    ID, facteur, defaultClientsData, unscaledData
+                )
+                st.text(f"{position}")
 
 elif usecase == panneau2:
     st.write("# Analyse de données\n ")

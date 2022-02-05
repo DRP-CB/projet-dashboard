@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 import pandas as pd
@@ -6,6 +5,21 @@ import gc
 from sklearn.preprocessing import RobustScaler
 from sklearn.feature_selection import VarianceThreshold
 import joblib
+
+import urllib
+import zipfile
+
+# Taille de l'échantillon pour faciliter le déploiement
+sampleSize = 25000
+
+## Acquisition des données 
+
+dataUrl = 'https://s3-eu-west-1.amazonaws.com/static.oc-static.com/prod/courses/files/Parcours_data_scientist/Projet+-+Impl%C3%A9menter+un+mod%C3%A8le+de+scoring/Projet+Mise+en+prod+-+home-credit-default-risk.zip'
+
+urllib.request.urlretrieve(dataUrl,"rawData.zip")
+
+with zipfile.ZipFile("rawData.zip",'r') as zip_ref:
+    zip_ref.extractall()
 
 ## Outils de nettoyage des données
 
@@ -269,7 +283,7 @@ def build_dataFrames():
     scaler = RobustScaler()
     stdData = scaler.fit_transform(dataClean)
    # Le scaler est conservé pour l'api 
-    joblib.dump(scaler,'scaler.save')
+    joblib.dump(scaler,'scaler.pkl')
     
     stdDF = pd.DataFrame(stdData)
     stdDF.index = credit_ID
@@ -283,6 +297,16 @@ def build_dataFrames():
     column_descriptions = column_descriptions[['Row','Description']].drop_duplicates()
     
     return stdDF, interestData, column_descriptions 
+
+stdDf, interestData, column_descriptions = build_dataFrames()
+
+
+stdDf.sample(sampleSize).to_csv('sampleData.csv')
+stdDf.to_csv('processedData.csv')
+
+interestData.to_csv('interestData.csv')
+
+column_descriptions.to_csv('descriptions.csv')
 
 #____________________________________________________
 
