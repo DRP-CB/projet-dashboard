@@ -6,15 +6,14 @@ import shap
 from matplotlib import pyplot as plt
 import plotly.express as px
 import seaborn as sns
-import os
 
 
 # variables
 
-datasetPath = os.path.join(os.getcwd(), "..", "modélisation/sampleData.csv")
-explainerPath = os.path.join(os.getcwd(), "..", "modélisation/explainer.pkl")
-descriptionsPath = os.path.join(os.getcwd(), "..", "modélisation/descriptions.csv")
-scalerPath = os.path.join(os.getcwd(), "..", "modélisation/scaler.pkl")
+datasetPath = "sampleData.csv"
+explainerPath = "explainer.pkl"
+descriptionsPath = "descriptions.csv"
+scalerPath = "scaler.pkl"
 url = "http://localhost:5000/pred"
 seuilattribution = 0.71
 

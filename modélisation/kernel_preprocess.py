@@ -5,8 +5,9 @@ import gc
 from sklearn.preprocessing import RobustScaler
 from sklearn.feature_selection import VarianceThreshold
 import joblib
-
-import urllib
+import os
+from os.path import exists
+import urllib.request
 import zipfile
 
 # Taille de l'échantillon pour faciliter le déploiement
@@ -16,7 +17,10 @@ sampleSize = 25000
 
 dataUrl = 'https://s3-eu-west-1.amazonaws.com/static.oc-static.com/prod/courses/files/Parcours_data_scientist/Projet+-+Impl%C3%A9menter+un+mod%C3%A8le+de+scoring/Projet+Mise+en+prod+-+home-credit-default-risk.zip'
 
-urllib.request.urlretrieve(dataUrl,"rawData.zip")
+if exists("rawData.zip"):
+    pass
+else:    
+    urllib.request.urlretrieve(dataUrl,"rawData.zip")
 
 with zipfile.ZipFile("rawData.zip",'r') as zip_ref:
     zip_ref.extractall()
@@ -283,7 +287,7 @@ def build_dataFrames():
     scaler = RobustScaler()
     stdData = scaler.fit_transform(dataClean)
    # Le scaler est conservé pour l'api 
-    joblib.dump(scaler,'scaler.pkl')
+    joblib.dump(scaler,os.path.join(os.getcwd(), "..", "dashboard/scaler.pkl"))
     
     stdDF = pd.DataFrame(stdData)
     stdDF.index = credit_ID
@@ -301,12 +305,12 @@ def build_dataFrames():
 stdDf, interestData, column_descriptions = build_dataFrames()
 
 
-stdDf.sample(sampleSize).to_csv('sampleData.csv')
+stdDf.sample(sampleSize).to_csv(os.path.join(os.getcwd(), "..", "dashboard/sampleData.csv"))
 stdDf.to_csv('processedData.csv')
 
 interestData.to_csv('interestData.csv')
 
-column_descriptions.to_csv('descriptions.csv')
+column_descriptions.to_csv(os.path.join(os.getcwd(), "..", "dashboard/descriptions.csv"))
 
 #____________________________________________________
 

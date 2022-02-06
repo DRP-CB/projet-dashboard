@@ -12,7 +12,7 @@ Pour faire fonctionner le dashboard:
 
 ### Inspecter et reproduire l'entrainement du modèle
 
-La démarche d'entrainement du modèle elle est observable dans le fichier 'modélisation.ipynb' dans le dossier modélisation
+La démarche d'entrainement du modèle est observable dans le fichier 'modélisation.ipynb' dans le dossier modélisation
   - le notebook est consultable tel quel
   - cependant pour faire fonctionner le code à l'intérieur il est nécessaire de lancer le script 'kernel_preprocess.py'
     - Celui-ci va télécharger les données (700Mo), les décompresser puis construire les fichiers necessaires au fonctionnement du notebook
