@@ -7,6 +7,7 @@ import plotly.express as px
 import seaborn as sns
 import json
 import requests
+import numpy as np
 
 # variables
 
@@ -15,6 +16,7 @@ explainerPath = "explainer.pkl"
 descriptionsPath = "descriptions.csv"
 scalerPath = "scaler.pkl"
 url = "http://localhost:5000/pred"
+
 seuilattribution = 0.71
 
 
@@ -51,6 +53,20 @@ def get_prediction(ID, url, data):
     return requests.post(url, json=payload).json()
 
 
+@st.cache(persist=True)
+def readable_number(number, tick_number):
+    if number < 0:
+        return f"{np.round(np.abs(number / 365), 2)} ans"
+    if number < 1000000:
+        return np.round(number, 2)
+    elif number >= 1000000 and number < 1000000000:
+        str_number = str(np.round(number / 1000000, 2))
+        return f"{str_number} Million(s)"
+    elif number >= 1000000000:
+        str_number = str(np.round(number / 1000000000, 2))
+        return f"{str_number} Milliard(s)"
+
+
 def plot_feature(
     sk_id_curr, feature, defaultClientsData, paybackClientsData, unscaledData
 ):
@@ -62,6 +78,8 @@ def plot_feature(
         label="Clients ayant remboursé",
         ax=ax,
     )
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(readable_number))
+
     sns.kdeplot(
         x=feature,
         data=defaultClientsData,
