@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
 import joblib
-from request_api import send_request
 import shap
 from matplotlib import pyplot as plt
 import plotly.express as px
 import seaborn as sns
-
+import json
+import requests
 
 # variables
 
@@ -47,8 +47,8 @@ def load_explainer():
 
 @st.cache(persist=True)
 def get_prediction(ID, url, data):
-    pred = send_request(ID, url, data)
-    return pred
+    payload = json.dumps(dict(data.loc[ID, :]))
+    return requests.post(url, json=payload).json()
 
 
 def plot_feature(
