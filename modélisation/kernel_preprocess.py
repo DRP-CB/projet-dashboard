@@ -13,13 +13,13 @@ import zipfile
 # Taille de l'échantillon pour faciliter le déploiement
 sampleSize = 25000
 
-## Acquisition des données 
+## Acquisition des données
 
 dataUrl = 'https://s3-eu-west-1.amazonaws.com/static.oc-static.com/prod/courses/files/Parcours_data_scientist/Projet+-+Impl%C3%A9menter+un+mod%C3%A8le+de+scoring/Projet+Mise+en+prod+-+home-credit-default-risk.zip'
 
 if exists("rawData.zip"):
     pass
-else:    
+else:
     urllib.request.urlretrieve(dataUrl,"rawData.zip")
 
 with zipfile.ZipFile("rawData.zip",'r') as zip_ref:
@@ -27,7 +27,7 @@ with zipfile.ZipFile("rawData.zip",'r') as zip_ref:
 
 ## Outils de nettoyage des données
 
-    
+
 def taux_na_colonnes(dataframe):
     colsum = dataframe.isna().sum()
     colonnes = colsum.index
@@ -55,13 +55,13 @@ def application_train(num_rows = None, nan_as_category = False):
    # df = df.append(test_df).reset_index()
     # Optional: Remove 4 applications with XNA CODE_GENDER (train set)
     df = df[df['CODE_GENDER'] != 'XNA']
-    
+
     # Categorical features with Binary encode (0 or 1; two categories)
     for bin_feature in ['CODE_GENDER', 'FLAG_OWN_CAR', 'FLAG_OWN_REALTY']:
         df[bin_feature], uniques = pd.factorize(df[bin_feature])
     # Categorical features with One-Hot encode
     df, cat_cols = one_hot_encoder(df, nan_as_category)
-    
+
     # NaN values for DAYS_EMPLOYED: 365.243 -> nan
     df['DAYS_EMPLOYED'].replace(365243, np.nan, inplace= True)
     # Some simple new features (percentages)
@@ -80,7 +80,7 @@ def bureau_and_balance(num_rows = None, nan_as_category = True):
     bb = pd.read_csv('bureau_balance.csv', nrows = num_rows)
     bb, bb_cat = one_hot_encoder(bb, nan_as_category)
     bureau, bureau_cat = one_hot_encoder(bureau, nan_as_category)
-    
+
     # Bureau balance: Perform aggregations and merge with bureau.csv
     bb_aggregations = {'MONTHS_BALANCE': ['min', 'max', 'size']}
     for col in bb_cat:
@@ -91,7 +91,7 @@ def bureau_and_balance(num_rows = None, nan_as_category = True):
     bureau.drop(['SK_ID_BUREAU'], axis=1, inplace= True)
     del bb, bb_agg
     gc.collect()
-    
+
     # Bureau and bureau_balance numeric features
     num_aggregations = {
         'DAYS_CREDIT': ['min', 'max', 'mean', 'var'],
@@ -113,7 +113,7 @@ def bureau_and_balance(num_rows = None, nan_as_category = True):
     cat_aggregations = {}
     for cat in bureau_cat: cat_aggregations[cat] = ['mean']
     for cat in bb_cat: cat_aggregations[cat + "_MEAN"] = ['mean']
-    
+
     bureau_agg = bureau.groupby('SK_ID_CURR').agg({**num_aggregations, **cat_aggregations})
     bureau_agg.columns = pd.Index(['BURO_' + e[0] + "_" + e[1].upper() for e in bureau_agg.columns.tolist()])
     # Bureau: Active credits - using only numerical aggregations
@@ -161,7 +161,7 @@ def previous_applications(num_rows = None, nan_as_category = True):
     cat_aggregations = {}
     for cat in cat_cols:
         cat_aggregations[cat] = ['mean']
-    
+
     prev_agg = prev.groupby('SK_ID_CURR').agg({**num_aggregations, **cat_aggregations})
     prev_agg.columns = pd.Index(['PREV_' + e[0] + "_" + e[1].upper() for e in prev_agg.columns.tolist()])
     # Previous Applications: Approved Applications - only numerical features
@@ -190,7 +190,7 @@ def pos_cash(num_rows = None, nan_as_category = True):
     }
     for cat in cat_cols:
         aggregations[cat] = ['mean']
-    
+
     pos_agg = pos.groupby('SK_ID_CURR').agg(aggregations)
     pos_agg.columns = pd.Index(['POS_' + e[0] + "_" + e[1].upper() for e in pos_agg.columns.tolist()])
     # Count pos cash accounts
@@ -198,7 +198,7 @@ def pos_cash(num_rows = None, nan_as_category = True):
     del pos
     gc.collect()
     return pos_agg
-    
+
 # Preprocess installments_payments.csv
 def installments_payments(num_rows = None, nan_as_category = True):
     ins = pd.read_csv('installments_payments.csv', nrows = num_rows)
@@ -246,7 +246,7 @@ def credit_card_balance(num_rows = None, nan_as_category = True):
     gc.collect()
     return cc_agg
 
-## Construction et nettoyage du jeu de données 
+## Construction et nettoyage du jeu de données
 
 def build_dataFrames():
     df_concat = pd.concat([application_train(),
@@ -261,8 +261,8 @@ def build_dataFrames():
     df_concat = df_concat[~df_concat['TARGET'].isna()]
     df_concat = df_concat.dropna(thresh=200)
     df_concat['SK_ID_CURR'] = pd.to_numeric(df_concat['SK_ID_CURR'], downcast='integer')
-    
-    
+
+
     previousRaw = (pd.read_csv('previous_application.csv'))[['RATE_INTEREST_PRIMARY',
                                                              'SK_ID_CURR']].dropna()
     interestData = previousRaw.merge(df_concat[['AMT_CREDIT',
@@ -272,8 +272,8 @@ def build_dataFrames():
     interestData.drop('SK_ID_CURR',
                        axis=1,
                        inplace=True)
-    
-    
+
+
     tauxNA = taux_na_colonnes(df_concat)
     colsToRemove = tauxNA[(tauxNA['pourcentage de NAN'] > 5)]['colonnes']
     dataClean = df_concat.drop(colsToRemove,
@@ -283,24 +283,24 @@ def build_dataFrames():
     dataClean.drop("SK_ID_CURR",
                    axis=1,
                    inplace=True)
-    
+    dataClean['DAYS_BIRTH'] = np.absolute(dataClean['DAYS_BIRTH'])
     scaler = RobustScaler()
     stdData = scaler.fit_transform(dataClean)
-   # Le scaler est conservé pour l'api 
+   # Le scaler est conservé pour l'api
     joblib.dump(scaler,os.path.join(os.getcwd(), "..", "dashboard/scaler.pkl"))
-    
+
     stdDF = pd.DataFrame(stdData)
     stdDF.index = credit_ID
     stdDF.columns = dataClean.columns
-    
-   
+
+
     selector = VarianceThreshold()
     dataClean = selector.fit_transform(dataClean)
-    
+
     column_descriptions = pd.read_csv('HomeCredit_columns_description.csv',encoding='ISO-8859-1')
     column_descriptions = column_descriptions[['Row','Description']].drop_duplicates()
-    
-    return stdDF, interestData, column_descriptions 
+
+    return stdDF, interestData, column_descriptions
 
 stdDf, interestData, column_descriptions = build_dataFrames()
 
@@ -313,4 +313,3 @@ interestData.to_csv('interestData.csv')
 column_descriptions.to_csv(os.path.join(os.getcwd(), "..", "dashboard/descriptions.csv"))
 
 #____________________________________________________
-
