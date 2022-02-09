@@ -17,7 +17,7 @@ descriptionsPath = "descriptions.csv"
 scalerPath = "scaler.pkl"
 url = "http://localhost:5000/pred"
 
-seuilattribution = 0.71
+seuilattribution = 0.73
 
 
 @st.cache(persist=True)
@@ -33,6 +33,10 @@ def load_data():
 
     defaultClientsData = unscaledData[unscaledData["TARGET"] == 1]
     paybackClientsData = unscaledData[unscaledData["TARGET"] == 0]
+    unscaledData.rename(columns={"TARGET": "Etat du Crédit"}, inplace=True)
+    unscaledData["Etat du Crédit"].replace(0, "Remboursé", inplace=True)
+    unscaledData["Etat du Crédit"].replace(1, "Défaut", inplace=True)
+
     descriptions = pd.read_csv(descriptionsPath)
 
     # data = data.sample(2000)
@@ -67,6 +71,11 @@ def readable_number(number, tick_number):
         return f"{str_number} Milliard(s)"
 
 
+@st.cache(persist=True)
+def readable_age(number, tick_number):
+    return f"{np.round(number / 365, 2)} ans"
+
+
 def plot_feature(
     sk_id_curr, feature, defaultClientsData, paybackClientsData, unscaledData
 ):
@@ -78,7 +87,10 @@ def plot_feature(
         label="Clients ayant remboursé",
         ax=ax,
     )
-    ax.xaxis.set_major_formatter(plt.FuncFormatter(readable_number))
+    if feature == "DAYS_BIRTH":
+        ax.xaxis.set_major_formatter(plt.FuncFormatter(readable_age))
+    else:
+        ax.xaxis.set_major_formatter(plt.FuncFormatter(readable_number))
 
     sns.kdeplot(
         x=feature,
@@ -89,6 +101,7 @@ def plot_feature(
         label="Clients en défaut",
         ax=ax,
     )
+    plt.locator_params(axis="x", nbins=8)
     plt.axvline(
         x=defaultClientsData[feature].mean(),
         color="red",
@@ -201,31 +214,78 @@ if usecase == panneau1:
                 st.text(f"{position}")
 
 elif usecase == panneau2:
-    st.write("# Analyse de données\n ")
+
+    nonBooleanFeatures = ["AMT_GOODS_PRICE", "AMT_CREDIT", "EXT_SOURCE_2"]
+
+    minsAndMaxesFeatures = [(40500, 4050000), (45000, 4050000), (0.0, 1.0)]
+
+    booleanFeatures = [
+        "FLAG_DOCUMENT_16",
+        "FLAG_DOCUMENT_18",
+        "ORGANIZATION_TYPE_Transport: type 3",
+        "ORGANIZATION_TYPE_Trade: type 2",
+        "FLAG_DOCUMENT_13",
+        "OCCUPATION_TYPE_Accountants",
+        "OCCUPATION_TYPE_High skill tech staff",
+    ]
+
+    st.write("# Analyse de données")
 
     with st.form(key="dataAnalysis"):
-        values = st.slider("Select a range of values", 0.0, 100.0, (25.0, 75.0))
-        st.write("Values:", values)
-        # st.write('###### Analyser et comparer la/les variables selectionnées')
+        st.write(
+            "#### Filtrer les clients sur la base des informations sélectionnées :"
+        )
+
+        masks = []
+        for feature, bounds in zip(nonBooleanFeatures, minsAndMaxesFeatures):
+            value = st.slider(
+                feature,
+                bounds[0],
+                bounds[1],
+                (bounds[0], bounds[1]),
+                help=get_description(feature, descriptions),
+            )
+            masks.append(
+                (unscaledData[feature] >= value[0])
+                & (unscaledData[feature] <= value[1])
+            )
+
+        for feature in booleanFeatures:
+            if st.checkbox(feature, help=get_description(feature, descriptions)):
+                value = 1
+            else:
+                value = 0
+            masks.append(unscaledData[feature] == value)
+
+        combinedMask = np.array(masks).all(axis=0)
+        selectedData = unscaledData[combinedMask]
+        st.write(
+            "#### Pour les clients sélectionnés, analyser les variables suivantes :"
+        )
         features = st.multiselect(
-            label="Analyser et comparer la/les variables selectionnées",
-            options=data.columns,
+            label="Choisir une ou plusieurs variables.", options=data.columns,
         )
         submit_button = st.form_submit_button(label="Visualiser")
+
     if len(features) < 2:
-        fig = px.histogram(data, x=features, template="seaborn")
+        fig = px.histogram(
+            selectedData, x=features, template="seaborn", color="Etat du Crédit",
+        )
         st.plotly_chart(fig)
     elif len(features) == 2:
         fig = px.scatter(
             x=features[0],
             y=features[1],
-            data_frame=data,
-            hover_name=data.index,
+            data_frame=selectedData,
+            hover_name=selectedData.index,
             opacity=0.8,
             template="seaborn",
             title=f"Relation entre {features[0]} et {features[1]} ",
+            color="Etat du Crédit",
         )
         st.plotly_chart(fig)
     elif len(features) > 2:
-        fig = px.scatter_matrix(data, dimensions=features)
+        fig = px.scatter_matrix(
+            selectedData, dimensions=features, color="Etat du Crédit"
+        )
         st.plotly_chart(fig)
