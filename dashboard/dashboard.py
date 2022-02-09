@@ -198,6 +198,8 @@ if usecase == panneau1:
             fontsize=15,
         )
         st.pyplot(fig)
+        with st.expander("Afficher toutes les données"):
+            st.table(data[data.index == ID])
 
         st.write("### Détail des facteurs :")
         facteurs = get_features(ID, data, explainer)
@@ -212,6 +214,7 @@ if usecase == panneau1:
                     ID, facteur, defaultClientsData, unscaledData
                 )
                 st.text(f"{position}")
+
 
 elif usecase == panneau2:
 
