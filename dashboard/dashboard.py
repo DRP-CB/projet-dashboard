@@ -233,11 +233,12 @@ elif usecase == panneau2:
     ]
 
     st.write("# Analyse de données")
-
+    st.write(
+        "Sélectionner la totalité ou un sous ensemble de clients pour \
+              observer la relation entre des variables et le risque crédit."
+    )
     with st.form(key="dataAnalysis"):
-        st.write(
-            "#### Filtrer les clients sur la base des informations sélectionnées :"
-        )
+        st.write("#### Filtrer les clients sur les critères suivants :")
 
         masks = []
         for feature, bounds in zip(nonBooleanFeatures, minsAndMaxesFeatures):
@@ -269,26 +270,31 @@ elif usecase == panneau2:
             label="Choisir une ou plusieurs variables.", options=data.columns,
         )
         submit_button = st.form_submit_button(label="Visualiser")
-
-    if len(features) < 2:
-        fig = px.histogram(
-            selectedData, x=features, template="seaborn", color="Etat du Crédit",
-        )
-        st.plotly_chart(fig)
-    elif len(features) == 2:
-        fig = px.scatter(
-            x=features[0],
-            y=features[1],
-            data_frame=selectedData,
-            hover_name=selectedData.index,
-            opacity=0.8,
-            template="seaborn",
-            title=f"Relation entre {features[0]} et {features[1]} ",
-            color="Etat du Crédit",
-        )
-        st.plotly_chart(fig)
-    elif len(features) > 2:
-        fig = px.scatter_matrix(
-            selectedData, dimensions=features, color="Etat du Crédit"
-        )
-        st.plotly_chart(fig)
+        if not features:
+            pass
+        elif len(features) < 2:
+            fig = px.histogram(
+                selectedData,
+                x=features,
+                template="seaborn",
+                color="Etat du Crédit",
+                title=f"Distribution de la variable {features[0]} ",
+            )
+            st.plotly_chart(fig)
+        elif len(features) == 2:
+            fig = px.scatter(
+                x=features[0],
+                y=features[1],
+                data_frame=selectedData,
+                hover_name=selectedData.index,
+                opacity=0.8,
+                template="seaborn",
+                title=f"Relation entre {features[0]} et {features[1]} ",
+                color="Etat du Crédit",
+            )
+            st.plotly_chart(fig)
+        elif len(features) > 2:
+            fig = px.scatter_matrix(
+                selectedData, dimensions=features, color="Etat du Crédit"
+            )
+            st.plotly_chart(fig)

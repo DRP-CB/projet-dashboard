@@ -13,7 +13,7 @@ import zipfile
 # Taille de l'échantillon pour faciliter le déploiement
 sampleSize = 25000
 
-## Acquisition des données
+## Acquisition des données : téléchargement et décompression
 
 dataUrl = "https://s3-eu-west-1.amazonaws.com/static.oc-static.com/prod/courses/files/Parcours_data_scientist/Projet+-+Impl%C3%A9menter+un+mod%C3%A8le+de+scoring/Projet+Mise+en+prod+-+home-credit-default-risk.zip"
 
@@ -24,22 +24,6 @@ else:
 
 with zipfile.ZipFile("rawData.zip", "r") as zip_ref:
     zip_ref.extractall()
-
-## Outils de nettoyage des données
-
-
-def taux_na_colonnes(dataframe):
-    colsum = dataframe.isna().sum()
-    colonnes = colsum.index
-    valeurs = colsum.values
-    pourcentage = np.round(((valeurs / dataframe.shape[0]) * 100), 2)
-    data_item = {
-        "colonnes": colonnes,
-        "taux NAN": valeurs,
-        "pourcentage de NAN": pourcentage,
-    }
-    return pd.DataFrame(data_item).sort_values(by="pourcentage de NAN", ascending=False)
-
 
 ## Fonctions de base de pré-processing de kaggle
 
@@ -283,7 +267,6 @@ def credit_card_balance(num_rows=None, nan_as_category=True):
 
 ## Construction et nettoyage du jeu de données
 
-
 def build_dataFrames():
     df_concat = pd.concat(
         [
@@ -298,6 +281,7 @@ def build_dataFrames():
         join="outer",
         axis=1,
     ).droplevel(0, axis=1)
+    
     df_concat = df_concat[~df_concat["TARGET"].isna()]
     df_concat = df_concat.dropna(thresh=200)
     df_concat["SK_ID_CURR"] = pd.to_numeric(df_concat["SK_ID_CURR"], downcast="integer")
@@ -318,7 +302,8 @@ def build_dataFrames():
     dataClean["DAYS_BIRTH"] = np.absolute(dataClean["DAYS_BIRTH"])
     scaler = RobustScaler()
     stdData = scaler.fit_transform(dataClean)
-    # Le scaler est conservé pour l'api
+    
+    # Le scaler est conservé pour inverser la transformation dans le dashboard et faciliter l'interprétation des graphiques
     joblib.dump(scaler, os.path.join(os.getcwd(), "..", "dashboard/scaler.pkl"))
 
     stdDF = pd.DataFrame(stdData)
