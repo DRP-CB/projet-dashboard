@@ -223,13 +223,13 @@ elif usecase == panneau2:
     minsAndMaxesFeatures = [(40500, 4050000), (45000, 4050000), (0.0, 1.0)]
 
     booleanFeatures = [
-        "FLAG_DOCUMENT_16",
-        "FLAG_DOCUMENT_18",
-        "ORGANIZATION_TYPE_Transport: type 3",
-        "ORGANIZATION_TYPE_Trade: type 2",
-        "FLAG_DOCUMENT_13",
-        "OCCUPATION_TYPE_Accountants",
-        "OCCUPATION_TYPE_High skill tech staff",
+       'ORGANIZATION_TYPE_Realtor',
+       'FLAG_DOCUMENT_13',
+       'FLAG_DOCUMENT_16',
+       'FLAG_DOCUMENT_14',
+       'ORGANIZATION_TYPE_Transport: type 3',
+       'ORGANIZATION_TYPE_Trade: type 6',
+       'ORGANIZATION_TYPE_Electricity'
     ]
 
     st.write("# Analyse de données")
