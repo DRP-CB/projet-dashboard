@@ -9,17 +9,18 @@ import json
 import requests
 import numpy as np
 
-# variables
 
 datasetPath = "sampleData.csv"
 explainerPath = "explainer.pkl"
 descriptionsPath = "descriptions.csv"
 scalerPath = "scaler.pkl"
+# l'addresse est paramétrée ici pour fonctionner en local
 url = "http://localhost:5000/pred"
 
+# Les risques crédits inférieurs à cette valeur sont acceptés
 seuilattribution = 0.73
 
-
+# Chargement des données
 @st.cache(persist=True)
 def load_data():
     dataWithTarget = pd.read_csv(datasetPath, index_col="SK_ID_CURR")
@@ -39,24 +40,24 @@ def load_data():
 
     descriptions = pd.read_csv(descriptionsPath)
 
-    # data = data.sample(2000)
-
     return data, unscaledData, defaultClientsData, paybackClientsData, descriptions
 
 
-@st.cache(persist=True)
+@st.cache(allow_output_mutation=True)
 def load_explainer():
     shap.initjs()
     explainer = joblib.load(explainerPath)
     return explainer
 
 
+# la requette POST à l'API
 @st.cache(persist=True)
 def get_prediction(ID, url, data):
     payload = json.dumps(dict(data.loc[ID, :]))
     return requests.post(url, json=payload).json()
 
 
+# Cette fonction permet d'avoir des nombres plus lisibles dans les graphiques
 @st.cache(persist=True)
 def readable_number(number, tick_number):
     if number < 0:
@@ -71,11 +72,13 @@ def readable_number(number, tick_number):
         return f"{str_number} Milliard(s)"
 
 
+# convertit l'age des clients de jours en années pour les graphiques
 @st.cache(persist=True)
 def readable_age(number, tick_number):
     return f"{np.round(number / 365, 2)} ans"
 
 
+# graphique permettant de positionner un individu par rapport à l'ensemble des clients
 def plot_feature(
     sk_id_curr, feature, defaultClientsData, paybackClientsData, unscaledData
 ):
@@ -117,6 +120,7 @@ def plot_feature(
     return fig
 
 
+# permet de récupérer les features à expliquer pour chaque client, les plus importants
 def get_features(sk_id_curr, dataset, explainer):
     shapDF = pd.DataFrame(
         {
@@ -128,6 +132,7 @@ def get_features(sk_id_curr, dataset, explainer):
     return orderedShapDF.head(5)["feature"].values
 
 
+# Explicite les features par une descritpion lorsque celle-ci est disponible.
 def get_description(featureName, descriptions):
     info = descriptions[descriptions["Row"] == featureName]["Description"]
     try:
@@ -136,6 +141,7 @@ def get_description(featureName, descriptions):
         return "pas de description disponible"
 
 
+# calcule un score Z pour aider à interpréter le positionnement d'un individu par rapport à la masse.
 def interpret_client(sk_id_curr, feature, defaultClientsData, unscaledData):
     meanDefault = defaultClientsData[feature].mean()
     stdDefault = defaultClientsData[feature].std()
@@ -198,8 +204,6 @@ if usecase == panneau1:
             fontsize=15,
         )
         st.pyplot(fig)
-        with st.expander("Afficher toutes les données"):
-            st.table(data[data.index == ID])
 
         st.write("### Détail des facteurs :")
         facteurs = get_features(ID, data, explainer)
@@ -214,22 +218,25 @@ if usecase == panneau1:
                     ID, facteur, defaultClientsData, unscaledData
                 )
                 st.text(f"{position}")
+        with st.expander("Afficher toutes les données"):
+            st.table(data[data.index == ID].T)
 
 
 elif usecase == panneau2:
-
+    # les facteurs utilisés pour sélectionner des clients pour l'analyse
+    # les 10 features les plus importants sur l'interprétation globale du modèle
     nonBooleanFeatures = ["AMT_GOODS_PRICE", "AMT_CREDIT", "EXT_SOURCE_2"]
 
     minsAndMaxesFeatures = [(40500, 4050000), (45000, 4050000), (0.0, 1.0)]
 
     booleanFeatures = [
-       'ORGANIZATION_TYPE_Realtor',
-       'FLAG_DOCUMENT_13',
-       'FLAG_DOCUMENT_16',
-       'FLAG_DOCUMENT_14',
-       'ORGANIZATION_TYPE_Transport: type 3',
-       'ORGANIZATION_TYPE_Trade: type 6',
-       'ORGANIZATION_TYPE_Electricity'
+        "ORGANIZATION_TYPE_Realtor",
+        "FLAG_DOCUMENT_13",
+        "FLAG_DOCUMENT_16",
+        "FLAG_DOCUMENT_14",
+        "ORGANIZATION_TYPE_Transport: type 3",
+        "ORGANIZATION_TYPE_Trade: type 6",
+        "ORGANIZATION_TYPE_Electricity",
     ]
 
     st.write("# Analyse de données")
@@ -239,7 +246,7 @@ elif usecase == panneau2:
     )
     with st.form(key="dataAnalysis"):
         st.write("#### Filtrer les clients sur les critères suivants :")
-
+        # Chaque checkbox / slider ajoute un masque de sélection
         masks = []
         for feature, bounds in zip(nonBooleanFeatures, minsAndMaxesFeatures):
             value = st.slider(
@@ -261,6 +268,8 @@ elif usecase == panneau2:
                 value = 0
             masks.append(unscaledData[feature] == value)
 
+        # Une fois tous les masques créés nous les combinons pour inclure seulement
+        # les données répondant aux critères de chaque slider / checkbox
         combinedMask = np.array(masks).all(axis=0)
         selectedData = unscaledData[combinedMask]
         st.write(
@@ -269,6 +278,10 @@ elif usecase == panneau2:
         features = st.multiselect(
             label="Choisir une ou plusieurs variables.", options=data.columns,
         )
+        # La visualisation s'adapte en fonction du nombre de variables choisies
+        # 1 = histogramme
+        # 2 = scatterplot
+        # 3 et + = matrice de scatterplots
         submit_button = st.form_submit_button(label="Visualiser")
         if not features:
             pass
