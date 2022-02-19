@@ -14,11 +14,10 @@ datasetPath = "sampleData.csv"
 explainerPath = "explainer.pkl"
 descriptionsPath = "descriptions.csv"
 scalerPath = "scaler.pkl"
-# l'addresse est paramétrée ici pour fonctionner en local
-url = "http://localhost:5000/pred"
+url = "https://paulderuta.pythonanywhere.com/pred"
 
 # Les risques crédits inférieurs à cette valeur sont acceptés
-seuilattribution = 0.73
+seuilattribution = 0.69
 
 # Chargement des données
 @st.cache(persist=True)
@@ -230,13 +229,13 @@ elif usecase == panneau2:
     minsAndMaxesFeatures = [(40500, 4050000), (45000, 4050000), (0.0, 1.0)]
 
     booleanFeatures = [
-        "ORGANIZATION_TYPE_Realtor",
         "FLAG_DOCUMENT_13",
-        "FLAG_DOCUMENT_16",
         "FLAG_DOCUMENT_14",
+        "FLAG_DOCUMENT_15",
+        "FLAG_DOCUMENT_18",
         "ORGANIZATION_TYPE_Transport: type 3",
-        "ORGANIZATION_TYPE_Trade: type 6",
-        "ORGANIZATION_TYPE_Electricity",
+        "ORGANIZATION_TYPE_Realtor",
+        "ORGANIZATION_TYPE_Construction",
     ]
 
     st.write("# Analyse de données")
@@ -285,6 +284,8 @@ elif usecase == panneau2:
         submit_button = st.form_submit_button(label="Visualiser")
         if not features:
             pass
+        elif selectedData.shape[0] == 0:
+            st.write("### Aucune donnée disponible avec les filtres selectionnés. \n #### Essayez une sélection plus générale.")
         elif len(features) < 2:
             fig = px.histogram(
                 selectedData,
